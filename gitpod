@@ -34,9 +34,9 @@ echo "Installing GNOME Desktop Environment"
 export DEBIAN_FRONTEND=noninteractive
 sudo apt install --assume-yes gnome-shell gnome-session gdm3
 
-# Configure Chrome Remote Desktop to use GNOME
+# Configure Chrome Remote Desktop to use GNOME with X11
 echo "Setting up Chrome Remote Desktop session"
-echo "exec /etc/X11/Xsession /usr/bin/gnome-session" | sudo tee /etc/chrome-remote-desktop-session
+echo "exec /etc/X11/Xsession /usr/bin/gnome-session --x11" | sudo tee /etc/chrome-remote-desktop-session
 sudo apt remove --assume-yes gnome-terminal
 sudo apt install --assume-yes xscreensaver
 
