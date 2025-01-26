@@ -6,10 +6,8 @@ password="root"
 
 # Set default CRP value
 CRP=""
-
 # Set default Pin value
 Pin="123456"
-
 # Set default Autostart value
 Autostart=true
 
@@ -22,7 +20,7 @@ echo "User created and configured with username '$username' and password '$passw
 
 echo "Installing necessary packages"
 sudo apt update
-sudo apt install -y xfce4 desktop-base xfce4-terminal tightvncserver wget xvfb
+sudo apt install -y xfce4 desktop-base xfce4-terminal tightvncserver wget xvfb gnome-session gnome-shell gdm3
 
 echo "Setting up Chrome Remote Desktop"
 echo "Installing Chrome Remote Desktop"
@@ -34,9 +32,11 @@ echo "Installing GNOME Desktop Environment"
 export DEBIAN_FRONTEND=noninteractive
 sudo apt install --assume-yes gnome-shell gnome-session gdm3
 
-# Configure Chrome Remote Desktop to use GNOME with X11
-echo "Setting up Chrome Remote Desktop session"
-echo "exec /etc/X11/Xsession /usr/bin/gnome-session --x11" | sudo tee /etc/chrome-remote-desktop-session
+# Configure Chrome Remote Desktop session
+echo "Setting up Chrome Remote Desktop session for GNOME"
+echo "exec /etc/X11/Xsession gnome-session" | sudo tee /etc/chrome-remote-desktop-session
+
+# Remove conflicting terminal
 sudo apt remove --assume-yes gnome-terminal
 sudo apt install --assume-yes xscreensaver
 
