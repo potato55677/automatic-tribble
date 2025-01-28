@@ -1,30 +1,30 @@
 #!/bin/bash
-set -e  # Exit immediately if any command fails
+set -e  # Exit on error
 
 # Configuration
 USERNAME="kdeuser"
-PASSWORD="root"  # Change this for security
+PASSWORD="root"  # Change this
 CRP=""
 PIN="123456"
 AUTOSTART=true
 
-# Cleanup function for error handling
+# Cleanup function (updated for compatibility)
 cleanup() {
-    echo "Error occurred. Performing cleanup..."
+    echo "Cleaning up..."
     sudo deluser "$USERNAME" 2>/dev/null || true
     sudo rm -rf "/home/$USERNAME"
     exit 1
 }
-trap cleanup ERR
+trap cleanup EXIT  # Use EXIT instead of ERR
 
 echo "Creating User and Setting Privileges"
-sudo useradd -m -s /bin/bash "$USERNAME"
-echo "$USERNAME:$PASSWORD" | sudo chpasswd
-sudo usermod -aG sudo,chrome-remote-desktop "$USERNAME"
+sudo useradd -m -s /bin/bash "$USERNAME" || cleanup
+echo "$USERNAME:$PASSWORD" | sudo chpasswd || cleanup
+sudo usermod -aG sudo,chrome-remote-desktop "$USERNAME" || cleanup
 
 echo "Updating System and Installing Dependencies"
-sudo apt update
-sudo apt upgrade -y
+sudo apt update || cleanup
+sudo apt upgrade -y || cleanup
 sudo apt install -y --no-install-recommends \
     kde-plasma-desktop \
     plasma-workspace-wayland \
@@ -34,44 +34,30 @@ sudo apt install -y --no-install-recommends \
     tightvncserver \
     wget \
     curl \
-    neofetch \
-    plasma-nm \
-    plasma-pa \
-    kio-extras
+    neofetch || cleanup
 
 echo "Configuring Display Manager (SDDM)"
-sudo update-rc.d sddm enable  # Enable SDDM on boot
-sudo service sddm start       # Start SDDM immediately
+sudo service sddm start || cleanup
 
 echo "Installing Chrome Remote Desktop"
-wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-sudo dpkg -i chrome-remote-desktop_current_amd64.deb || sudo apt install -yf
-rm chrome-remote-desktop_current_amd64.deb
+wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb || cleanup
+sudo dpkg -i chrome-remote-desktop_current_amd64.deb || sudo apt install -yf || cleanup
+rm chrome-remote-desktop_current_amd64.deb || cleanup
 
 echo "Optimizing KDE Configuration"
-sudo tee /etc/sysctl.d/99-kde-optimizations.conf <<EOF
+sudo tee /etc/sysctl.d/99-kde-optimizations.conf <<EOF || cleanup
 vm.swappiness=10
 vm.vfs_cache_pressure=50
 EOF
 
-sudo mkdir -p /etc/xdg/kioslaverc
-sudo tee /etc/xdg/kioslaverc <<EOF
-[Desktop Entry]
-DefaultApplication=org.kde.dolphin
-EOF
-
-echo "Configuring User Environment"
-sudo -u "$USERNAME" mkdir -p "/home/$USERNAME/.config/autostart"
-sudo -u "$USERNAME" dbus-launch kdeglobals
-
 echo "Setting Up Chrome Remote Desktop Session"
-sudo tee /etc/chrome-remote-desktop-session <<EOF
+sudo tee /etc/chrome-remote-desktop-session <<EOF || cleanup
 export XDG_SESSION_TYPE=x11
 exec /usr/bin/startplasma-x11
 EOF
 
 if [ "$AUTOSTART" = true ]; then
-    sudo -u "$USERNAME" tee "/home/$USERNAME/.config/autostart/colab.desktop" <<EOF
+    sudo -u "$USERNAME" tee "/home/$USERNAME/.config/autostart/colab.desktop" <<EOF || cleanup
 [Desktop Entry]
 Type=Application
 Name=Colab
@@ -84,19 +70,13 @@ fi
 
 echo "Final Configuration"
 read -p "Enter CRP value: " CRP
-sudo -u "$USERNAME" -E chrome-remote-desktop --pin="$PIN" --code="$CRP"
-
-echo "Optimizing Services"
-sudo update-rc.d -f NetworkManager-wait-online remove  # Disable unnecessary service
-sudo update-rc.d -f plymouth-quit-wait remove          # Disable plymouth
+sudo -u "$USERNAME" -E chrome-remote-desktop --pin="$PIN" --code="$CRP" || cleanup
 
 echo "Cleaning Up"
-sudo apt autoremove -y
-sudo apt clean
-sudo rm -rf /var/lib/apt/lists/*
+sudo apt autoremove -y || cleanup
+sudo apt clean || cleanup
 
 echo "Installation Complete!"
-echo "KDE Plasma Version: $(plasmashell --version)"
 neofetch
 
 # Keep container running
