@@ -8,7 +8,7 @@ CRP=""
 PIN="123456"
 AUTOSTART=true
 
-# Cleanup function (updated for compatibility)
+# Cleanup function
 cleanup() {
     echo "Cleaning up..."
     sudo deluser "$USERNAME" 2>/dev/null || true
@@ -20,6 +20,13 @@ trap cleanup EXIT  # Use EXIT instead of ERR
 echo "Creating User and Setting Privileges"
 sudo useradd -m -s /bin/bash "$USERNAME" || cleanup
 echo "$USERNAME:$PASSWORD" | sudo chpasswd || cleanup
+
+# Create the 'chrome-remote-desktop' group if it doesn't exist
+if ! getent group chrome-remote-desktop >/dev/null; then
+    sudo groupadd chrome-remote-desktop || cleanup
+fi
+
+# Add user to groups
 sudo usermod -aG sudo,chrome-remote-desktop "$USERNAME" || cleanup
 
 echo "Updating System and Installing Dependencies"
@@ -79,5 +86,4 @@ sudo apt clean || cleanup
 echo "Installation Complete!"
 neofetch
 
-# Keep container running
-while :; do sleep 3600; done
+# Keep container
