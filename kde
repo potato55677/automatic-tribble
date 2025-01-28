@@ -41,10 +41,19 @@ sudo apt install -y --no-install-recommends \
     tightvncserver \
     wget \
     curl \
-    neofetch || cleanup
+    neofetch \
+    sddm || cleanup  # Ensure SDDM is installed
 
 echo "Configuring Display Manager (SDDM)"
-sudo service sddm start || cleanup
+# Enable SDDM (if systemd is available)
+if command -v systemctl >/dev/null; then
+    sudo systemctl enable sddm || cleanup
+    sudo systemctl start sddm || cleanup
+else
+    # Fallback for non-systemd systems
+    sudo update-rc.d sddm enable || cleanup
+    sudo service sddm start || cleanup
+fi
 
 echo "Installing Chrome Remote Desktop"
 wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb || cleanup
@@ -86,4 +95,5 @@ sudo apt clean || cleanup
 echo "Installation Complete!"
 neofetch
 
-# Keep container
+# Keep container running
+while :; do sleep 3600; done
