@@ -31,7 +31,6 @@ sudo apt install -y --no-install-recommends \
     kwin-wayland \
     xorg \
     dbus-x11 \
-    sddm \
     tightvncserver \
     wget \
     curl \
@@ -40,11 +39,9 @@ sudo apt install -y --no-install-recommends \
     plasma-pa \
     kio-extras
 
-echo "Configuring Display Manager"
-sudo systemctl disable gdm3 2>/dev/null || true
-sudo systemctl disable lightdm 2>/dev/null || true
-sudo systemctl enable sddm
-sudo systemctl set-default graphical.target
+echo "Configuring Display Manager (SDDM)"
+sudo update-rc.d sddm enable  # Enable SDDM on boot
+sudo service sddm start       # Start SDDM immediately
 
 echo "Installing Chrome Remote Desktop"
 wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
@@ -90,9 +87,8 @@ read -p "Enter CRP value: " CRP
 sudo -u "$USERNAME" -E chrome-remote-desktop --pin="$PIN" --code="$CRP"
 
 echo "Optimizing Services"
-sudo systemctl disable NetworkManager-wait-online.service
-sudo systemctl mask plymouth-quit-wait.service
-sudo systemctl enable chrome-remote-desktop
+sudo update-rc.d -f NetworkManager-wait-online remove  # Disable unnecessary service
+sudo update-rc.d -f plymouth-quit-wait remove          # Disable plymouth
 
 echo "Cleaning Up"
 sudo apt autoremove -y
