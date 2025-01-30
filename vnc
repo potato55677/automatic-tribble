@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Set default username and password
+username="user"
+password="root"
+
+# Set default VNC password
+vnc_password="123456"
+
+# Set default ngrok authentication token (replace with your ngrok token)
+ngrok_token="YOUR_NGROK_AUTH_TOKEN"
+
+echo "Creating User and Setting it up"
+sudo useradd -m "$username"
+sudo adduser "$username" sudo
+echo "$username:$password" | sudo chpasswd
+sudo sed -i 's/\/bin\/sh/\/bin\/bash/g' /etc/passwd
+echo "User created and configured with username '$username' and password '$password'"
+
+echo "Installing necessary packages"
+sudo apt update
+sudo apt install -y xfce4 desktop-base xfce4-terminal tightvncserver wget
+
+echo "Setting up VNC Server"
+# Set VNC password
+mkdir -p "/home/$username/.vnc"
+echo "$vnc_password" | vncpasswd -f > "/home/$username/.vnc/passwd"
+chown -R "$username:$username" "/home/$username/.vnc"
+chmod 600 "/home/$username/.vnc/passwd"
+
+# Create VNC startup script
+vnc_startup_script="/home/$username/.vnc/xstartup"
+echo "#!/bin/bash" > "$vnc_startup_script"
+echo "unset SESSION_MANAGER" >> "$vnc_startup_script"
+echo "unset DBUS_SESSION_BUS_ADDRESS" >> "$vnc_startup_script"
+echo "exec /usr/bin/xfce4-session" >> "$vnc_startup_script"
+chmod +x "$vnc_startup_script"
+
+# Start VNC server
+sudo -u "$username" vncserver :1 -geometry 1280x800 -depth 24
+
+echo "Setting up ngrok"
+# Authenticate ngrok
+./ngrok authtoken "$ngrok_token"
+
+# Start ngrok to tunnel VNC (default VNC port is 5901)
+./ngrok tcp 5901 &
+
+echo "VNC server is running on port 5901"
+echo "Use the ngrok tunnel to connect to the VNC server"
+echo "Run 'curl -s http://localhost:4040/api/tunnels' to get the ngrok public URL"
+
+echo "Finished Successfully"
+while true; do sleep 10; done
