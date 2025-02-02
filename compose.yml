@@ -4,8 +4,8 @@ services:
     container_name: windows
     environment:
       VERSION: "11"
-      RAM_SIZE: "13G"
-      CPU_CORE: 4
+      RAM_SIZE: "0"  # "0" allows the container to use all available RAM
+      CPU_CORE: "${NPROC}"  # Dynamically uses all available CPU cores
     devices:
       - /dev/kvm
       - /dev/net/tun
@@ -16,5 +16,7 @@ services:
       - 3389:3389/tcp
       - 3389:3389/udp
     stop_grace_period: 2m
-    volumes:
-      - /var/win:/storage
+    restart: on-failure
+    sysctls:
+      - vm.nr_hugepages=128  # HugePages for memory optimization
+  
