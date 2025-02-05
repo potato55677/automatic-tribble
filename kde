@@ -1,99 +1,69 @@
 #!/bin/bash
-set -e  # Exit on error
 
-# Configuration
-USERNAME="kdeuser"
-PASSWORD="root"  # Change this
+# Set default username and password
+username="user"
+password="root"
+
+# Set default CRP value
 CRP=""
-PIN="123456"
-AUTOSTART=true
 
-# Cleanup function
-cleanup() {
-    echo "Cleaning up..."
-    sudo deluser "$USERNAME" 2>/dev/null || true
-    sudo rm -rf "/home/$USERNAME"
-    exit 1
-}
-trap cleanup EXIT  # Use EXIT instead of ERR
+# Set default Pin value
+Pin="123456"
 
-echo "Creating User and Setting Privileges"
-sudo useradd -m -s /bin/bash "$USERNAME" || cleanup
-echo "$USERNAME:$PASSWORD" | sudo chpasswd || cleanup
+# Set default Autostart value
+Autostart=true
 
-# Create the 'chrome-remote-desktop' group if it doesn't exist
-if ! getent group chrome-remote-desktop >/dev/null; then
-    sudo groupadd chrome-remote-desktop || cleanup
-fi
+echo "Creating User and Setting it up"
+sudo useradd -m "$username"
+sudo adduser "$username" sudo
+echo "$username:$password" | sudo chpasswd
+sudo sed -i 's/\/bin\/sh/\/bin\/bash/g' /etc/passwd
+echo "User created and configured with username '$username' and password '$password'"
 
-# Add user to groups
-sudo usermod -aG sudo,chrome-remote-desktop "$USERNAME" || cleanup
+echo "Installing necessary packages"
+sudo apt update
+sudo apt install -y wget tightvncserver
 
-echo "Updating System and Installing Dependencies"
-sudo apt update || cleanup
-sudo apt upgrade -y || cleanup
-sudo apt install -y --no-install-recommends \
-    kde-plasma-desktop \
-    plasma-workspace-wayland \
-    kwin-wayland \
-    xorg \
-    dbus-x11 \
-    tightvncserver \
-    wget \
-    curl \
-    neofetch \
-    sddm || cleanup  # Ensure SDDM is installed
+# Installing KDE Plasma and Wayland support
+echo "Installing KDE Plasma Desktop with Wayland"
+sudo apt install --assume-yes kubuntu-desktop
+sudo apt install --assume-yes plasma-workspace-wayland
 
-echo "Configuring Display Manager (SDDM)"
-# Enable SDDM (if systemd is available)
-if command -v systemctl >/dev/null; then
-    sudo systemctl enable sddm || cleanup
-    sudo systemctl start sddm || cleanup
-else
-    # Fallback for non-systemd systems
-    sudo update-rc.d sddm enable || cleanup
-    sudo service sddm start || cleanup
-fi
+# Set Wayland as the default session if possible (for KDE Plasma)
+sudo sed -i 's/exec startplasma-x11/exec startplasma-wayland/g' /etc/lightdm/lightdm.conf
 
+echo "Setting up Chrome Remote Desktop"
 echo "Installing Chrome Remote Desktop"
-wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb || cleanup
-sudo dpkg -i chrome-remote-desktop_current_amd64.deb || sudo apt install -yf || cleanup
-rm chrome-remote-desktop_current_amd64.deb || cleanup
+wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+sudo dpkg --install chrome-remote-desktop_current_amd64.deb
+sudo apt install --assume-yes --fix-broken
 
-echo "Optimizing KDE Configuration"
-sudo tee /etc/sysctl.d/99-kde-optimizations.conf <<EOF || cleanup
-vm.swappiness=10
-vm.vfs_cache_pressure=50
-EOF
+echo "Installing Google Chrome"
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg --install google-chrome-stable_current_amd64.deb
+sudo apt install --assume-yes --fix-broken
 
-echo "Setting Up Chrome Remote Desktop Session"
-sudo tee /etc/chrome-remote-desktop-session <<EOF || cleanup
-export XDG_SESSION_TYPE=x11
-exec /usr/bin/startplasma-x11
-EOF
+# Prompt user for CRP value
+read -p "Enter CRP value: " CRP
 
-if [ "$AUTOSTART" = true ]; then
-    sudo -u "$USERNAME" tee "/home/$USERNAME/.config/autostart/colab.desktop" <<EOF || cleanup
-[Desktop Entry]
-Type=Application
-Name=Colab
-Exec=sensible-browser https://youtu.be/d9ui27vVePY?si=TfVDVQOd0VHjUt_b
-Icon=
-Comment=Auto-start predefined notebook
-X-GNOME-Autostart-enabled=true
-EOF
+echo "Finalizing"
+# Set autostart option
+if [ "$Autostart" = true ]; then
+    mkdir -p "/home/$username/.config/autostart"
+    link="https://youtu.be/d9ui27vVePY?si=TfVDVQOd0VHjUt_b"
+    colab_autostart="[Desktop Entry]\nType=Application\nName=Colab\nExec=sh -c 'sensible-browser $link'\nIcon=\nComment=Open a predefined notebook at session signin.\nX-GNOME-Autostart-enabled=true"
+    echo -e "$colab_autostart" | sudo tee "/home/$username/.config/autostart/colab.desktop"
+    sudo chmod +x "/home/$username/.config/autostart/colab.desktop"
+    sudo chown "$username:$username" "/home/$username/.config"
 fi
 
-echo "Final Configuration"
-read -p "Enter CRP value: " CRP
-sudo -u "$USERNAME" -E chrome-remote-desktop --pin="$PIN" --code="$CRP" || cleanup
+# Add user to chrome-remote-desktop group
+sudo adduser "$username" chrome-remote-desktop
 
-echo "Cleaning Up"
-sudo apt autoremove -y || cleanup
-sudo apt clean || cleanup
+# Run Chrome Remote Desktop with specified CRP value and PIN
+command="$CRP --pin=$Pin"
+sudo su - "$username" -c "$command"
+sudo service chrome-remote-desktop start
 
-echo "Installation Complete!"
-neofetch
-
-# Keep container running
-while :; do sleep 3600; done
+echo "Finished Successfully"
+while true; do sleep 10; done
