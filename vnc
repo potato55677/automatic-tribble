@@ -34,7 +34,6 @@ sudo chmod +x /home/$username/.xsession
 sudo chown "$username:$username" /home/$username/.xsession
 sudo apt remove --assume-yes gnome-terminal
 sudo apt install --assume-yes xscreensaver
-sudo systemctl disable lightdm.service
 
 echo "Installing Google Chrome"
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
@@ -51,9 +50,8 @@ if [ "$Autostart" = true ]; then
     sudo chown "$username:$username" "/home/$username/.config"
 fi
 
-echo "Starting NoMachine Service"
-sudo systemctl enable --now nxserver.service
-sudo systemctl start nxserver.service
+echo "Starting NoMachine Without systemd"
+sudo /etc/NX/nxserver --daemon  
 
 echo "NoMachine Installed Successfully!"
 while true; do sleep 10; done
