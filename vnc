@@ -13,25 +13,33 @@ echo "User created and configured with username '$username' and password '$passw
 
 echo "Installing necessary packages"
 sudo apt update
-sudo apt install -y xfce4 desktop-base xfce4-terminal wget curl
+sudo apt install -y xrdp xfce4 xfce4-terminal desktop-base wget curl unzip
 
-echo "Installing TurboVNC"
-wget https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb
-sudo dpkg -i turbovnc_3.0.2_amd64.deb
-sudo apt install --assume-yes --fix-broken
+echo "Configuring xRDP for XFCE"
+echo "xfce4-session" > /home/$username/.xsession
+sudo chown $username:$username /home/$username/.xsession
+sudo sed -i 's/^new_cursors=true/new_cursors=false/' /etc/xrdp/xrdp.ini
 
-echo "Configuring TurboVNC"
-sudo -u "$username" vncserver :1 -geometry 1280x720 -depth 24
-echo "exec startxfce4" > /home/$username/.vnc/xstartup
-sudo chmod +x /home/$username/.vnc/xstartup
-sudo chown -R "$username:$username" /home/$username/.vnc
+echo "Allowing xRDP through firewall"
+sudo ufw allow 3389/tcp
 
-echo "Creating a startup script for TurboVNC"
-echo -e "#!/bin/bash\nvncserver :1 -geometry 1280x720 -depth 24" | sudo tee /usr/local/bin/start-vnc.sh
-sudo chmod +x /usr/local/bin/start-vnc.sh
+echo "Installing Ngrok v3"
+wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+tar -xvzf ngrok-v3-stable-linux-amd64.tgz
+sudo mv ngrok /usr/local/bin/
 
-echo "Starting TurboVNC Server"
-sudo -u "$username" /usr/local/bin/start-vnc.sh
+# Prompt user for Ngrok Auth Token
+read -p "Enter your Ngrok Auth Token: " NGROK_AUTH_TOKEN
+ngrok config add-authtoken $NGROK_AUTH_TOKEN
 
-echo "Setup Complete! Connect using VNC Viewer with: your-server-ip:5901"
+echo "Starting xRDP without systemd"
+nohup xrdp &
+
+echo "Starting Ngrok (India Server) for Remote Access"
+nohup ngrok tcp --region in 3389 &
+
+echo "Setup Complete! Wait for Ngrok URL..."
+sleep 5
+curl --silent http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*'
+
 while true; do sleep 10; done
