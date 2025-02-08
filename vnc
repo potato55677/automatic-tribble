@@ -4,12 +4,6 @@
 username="user"
 password="root"
 
-# Set default Pin value
-Pin="123456"
-
-# Set default Autostart value
-Autostart=true
-
 echo "Creating User and Setting it up"
 sudo useradd -m "$username"
 sudo adduser "$username" sudo
@@ -19,39 +13,25 @@ echo "User created and configured with username '$username' and password '$passw
 
 echo "Installing necessary packages"
 sudo apt update
-sudo apt install -y xfce4 desktop-base xfce4-terminal wget
+sudo apt install -y xfce4 desktop-base xfce4-terminal wget curl
 
-echo "Installing NoMachine"
-wget https://download.nomachine.com/download/8.12/Linux/nomachine_8.12.3_1_amd64.deb
-sudo dpkg -i nomachine_8.12.3_1_amd64.deb
+echo "Installing TurboVNC"
+wget https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb
+sudo dpkg -i turbovnc_3.0.2_amd64.deb
 sudo apt install --assume-yes --fix-broken
 
-echo "Installing Desktop Environment"
-export DEBIAN_FRONTEND=noninteractive
-sudo apt install --assume-yes xfce4 desktop-base xfce4-terminal
-echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" | sudo tee /home/$username/.xsession
-sudo chmod +x /home/$username/.xsession
-sudo chown "$username:$username" /home/$username/.xsession
-sudo apt remove --assume-yes gnome-terminal
-sudo apt install --assume-yes xscreensaver
+echo "Configuring TurboVNC"
+sudo -u "$username" vncserver :1 -geometry 1280x720 -depth 24
+echo "exec startxfce4" > /home/$username/.vnc/xstartup
+sudo chmod +x /home/$username/.vnc/xstartup
+sudo chown -R "$username:$username" /home/$username/.vnc
 
-echo "Installing Google Chrome"
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo dpkg --install google-chrome-stable_current_amd64.deb
-sudo apt install --assume-yes --fix-broken
+echo "Creating a startup script for TurboVNC"
+echo -e "#!/bin/bash\nvncserver :1 -geometry 1280x720 -depth 24" | sudo tee /usr/local/bin/start-vnc.sh
+sudo chmod +x /usr/local/bin/start-vnc.sh
 
-echo "Finalizing"
-if [ "$Autostart" = true ]; then
-    mkdir -p "/home/$username/.config/autostart"
-    link="https://youtu.be/d9ui27vVePY?si=TfVDVQOd0VHjUt_b"
-    colab_autostart="[Desktop Entry]\nType=Application\nName=Colab\nExec=sh -c 'sensible-browser $link'\nIcon=\nComment=Open a predefined notebook at session signin.\nX-GNOME-Autostart-enabled=true"
-    echo -e "$colab_autostart" | sudo tee "/home/$username/.config/autostart/colab.desktop"
-    sudo chmod +x "/home/$username/.config/autostart/colab.desktop"
-    sudo chown "$username:$username" "/home/$username/.config"
-fi
+echo "Starting TurboVNC Server"
+sudo -u "$username" /usr/local/bin/start-vnc.sh
 
-echo "Starting NoMachine Without systemd"
-sudo /etc/NX/nxserver --daemon  
-
-echo "NoMachine Installed Successfully!"
+echo "Setup Complete! Connect using VNC Viewer with: your-server-ip:5901"
 while true; do sleep 10; done
