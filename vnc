@@ -4,6 +4,12 @@
 username="user"
 password="root"
 
+# Set default VNC password
+VNC_PWD="123456"
+
+# Set default Autostart value
+Autostart=true
+
 echo "Creating User and Setting it up"
 sudo useradd -m "$username"
 sudo adduser "$username" sudo
@@ -13,33 +19,41 @@ echo "User created and configured with username '$username' and password '$passw
 
 echo "Installing necessary packages"
 sudo apt update
-sudo apt install -y xrdp xfce4 xfce4-terminal desktop-base wget curl unzip
+sudo apt install -y xfce4 xfce4-terminal desktop-base wget curl unzip
 
-echo "Configuring xRDP for XFCE"
-echo "xfce4-session" > /home/$username/.xsession
-sudo chown $username:$username /home/$username/.xsession
-sudo sed -i 's/^new_cursors=true/new_cursors=false/' /etc/xrdp/xrdp.ini
+echo "Installing TurboVNC"
+wget https://sourceforge.net/projects/turbovnc/files/3.0.2/turbovnc_3.0.2_amd64.deb
+sudo dpkg -i turbovnc_3.0.2_amd64.deb
+sudo apt install --assume-yes --fix-broken
 
-echo "Allowing xRDP through firewall"
-sudo ufw allow 3389/tcp
-
-echo "Installing Ngrok v3"
-wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
-tar -xvzf ngrok-v3-stable-linux-amd64.tgz
+echo "Installing Ngrok"
+wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-linux-amd64.zip
+unzip ngrok-stable-linux-amd64.zip
 sudo mv ngrok /usr/local/bin/
+sudo chmod +x /usr/local/bin/ngrok
 
-# Prompt user for Ngrok Auth Token
-read -p "Enter your Ngrok Auth Token: " NGROK_AUTH_TOKEN
-ngrok config add-authtoken $NGROK_AUTH_TOKEN
+# Prompt user for Ngrok authentication token
+read -p "Enter your Ngrok auth token: " NGROK_AUTH
 
-echo "Starting xRDP without systemd"
-nohup xrdp &
+# Configure Ngrok
+ngrok authtoken "$NGROK_AUTH"
 
-echo "Starting Ngrok (India Server) for Remote Access"
-nohup ngrok tcp --region in 3389 &
+echo "Setting up TurboVNC for User"
+sudo -u "$username" vncserver -kill :1 >/dev/null 2>&1
+sudo -u "$username" vncserver :1 -geometry 1280x720 -depth 24
+echo "VNC Server started for user '$username'"
 
-echo "Setup Complete! Wait for Ngrok URL..."
-sleep 5
-curl --silent http://localhost:4040/api/tunnels | grep -o 'tcp://[^"]*'
+echo "Starting Ngrok tunnel"
+nohup ngrok tcp 5901 --log=stdout > /home/"$username"/ngrok.log 2>&1 &
 
+sleep 5  # Wait for Ngrok to initialize
+
+echo "Fetching Ngrok VNC address..."
+VNC_ADDRESS=$(curl -s http://localhost:4040/api/tunnels | grep -o '"public_url":"tcp://[^"]*' | cut -d'"' -f4)
+
+echo "VNC Server is running. Connect using the following details:"
+echo "VNC Address: $VNC_ADDRESS"
+echo "VNC Password: $VNC_PWD"
+
+echo "Setup Completed Successfully"
 while true; do sleep 10; done
