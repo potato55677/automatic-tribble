@@ -16,7 +16,7 @@ sudo sed -i 's/\/bin\/sh/\/bin\/bash/g' /etc/passwd
 echo "User created and configured with username '$username' and password '$password'"
 echo "Installing necessary packages"
 sudo apt update
-sudo apt install -y gnome-shell gnome-session gnome-terminal tightvncserver wget
+sudo apt install -y gnome-shell gnome-session gnome-terminal tightvncserver wget xvfb
 echo "Setting up Chrome Remote Desktop"
 echo "Installing Chrome Remote Desktop"
 wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
@@ -26,8 +26,9 @@ echo "Installing Desktop Environment"
 export DEBIAN_FRONTEND=noninteractive
 sudo apt install --assume-yes gnome-session gnome-shell gnome-terminal
 sudo apt remove --assume-yes xfce4 xfce4-terminal
-echo "exec /usr/bin/gnome-session" | sudo tee /etc/chrome-remote-desktop-session
-sudo systemctl disable gdm.service
+echo "exec gnome-session" | sudo tee /etc/chrome-remote-desktop-session
+sudo service gdm stop
+sudo service lightdm stop
 echo "Installing Google Chrome"
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 sudo dpkg --install google-chrome-stable_current_amd64.deb
@@ -43,6 +44,7 @@ echo -e "$colab_autostart" | sudo tee "/home/$username/.config/autostart/colab.d
 sudo chmod +x "/home/$username/.config/autostart/colab.desktop"
 sudo chown "$username:$username" "/home/$username/.config"
 fi
+sudo usermod -aG sudo,chrome-remote-desktop,adm,dialout,cdrom,floppy,audio,dip,video,plugdev,netdev,lpadmin,lxd,sambashare gitpod
 sudo adduser "$username" chrome-remote-desktop
 command="$CRP --pin=$Pin"
 sudo su - "$username" -c "$command"
