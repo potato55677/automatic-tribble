@@ -22,7 +22,7 @@ echo "User created and configured with username '$username' and password '$passw
 
 echo "Installing necessary packages"
 sudo apt update
-sudo apt install -y ubuntu-desktop tightvncserver wget
+sudo apt install -y ubuntu-desktop gnome-terminal tightvncserver wget
 
 echo "Setting up Chrome Remote Desktop"
 echo "Installing Chrome Remote Desktop"
@@ -30,9 +30,8 @@ wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
 sudo dpkg --install chrome-remote-desktop_current_amd64.deb
 sudo apt install --assume-yes --fix-broken
 
-echo "Installing Desktop Environment"
+echo "Configuring Desktop Environment"
 export DEBIAN_FRONTEND=noninteractive
-sudo apt install --assume-yes ubuntu-desktop
 echo "exec /etc/X11/Xsession /usr/bin/gnome-session" | sudo tee /etc/chrome-remote-desktop-session
 sudo apt remove --assume-yes gnome-terminal
 sudo apt install --assume-yes xscreensaver
