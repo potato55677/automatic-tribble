@@ -1,61 +1,65 @@
 #!/bin/bash
 
-# Set default username and password
-username="user"
-password="root"
+# Exit on error
+set -e
 
-# Set default CRP value
-CRP=""
+# Function to check if a package is installed
+check_package() {
+    dpkg -l | grep -q "$1" || sudo apt-get install -y "$1"
+}
 
-# Set default Pin value
-Pin="123456"
-
-# Set default Autostart value
-Autostart=true
-
-echo "Creating User and Setting it up"
-sudo useradd -m "$username"
-sudo adduser "$username" sudo
-echo "$username:$password" | sudo chpasswd
-sudo sed -i 's/\/bin\/sh/\/bin\/bash/g' /etc/passwd
-echo "User created and configured with username '$username' and password '$password'"
-
-echo "Installing necessary packages"
+echo "Updating package list..."
 sudo apt update
-sudo apt install -y ubuntu-desktop gnome-terminal dbus-x11 wget
 
-echo "Setting up Chrome Remote Desktop"
-echo "Installing Chrome Remote Desktop"
+echo "Installing required dependencies..."
+DEBIAN_FRONTEND=noninteractive sudo apt install -y \
+    dbus-x11 \
+    xserver-xorg \
+    x11-xserver-utils \
+    gnome-session \
+    gnome-terminal \
+    gdm3 \
+    gnome-shell \
+    ubuntu-session \
+    gnome-control-center \
+    gnome-tweaks \
+    tasksel \
+    wget \
+    curl \
+    nano \
+    unzip \
+    pulseaudio \
+    xvfb \
+    xrdp \
+    fonts-liberation \
+    libgbm1 \
+    libxkbcommon-x11-0
+
+echo "Downloading Chrome Remote Desktop..."
 wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-sudo dpkg --install chrome-remote-desktop_current_amd64.deb
-sudo apt install --assume-yes --fix-broken
 
-echo "Configuring Chrome Remote Desktop with Ubuntu Desktop"
-echo "exec /etc/X11/Xsession /usr/bin/gnome-session" | sudo tee /etc/chrome-remote-desktop-session
-sudo systemctl disable lightdm.service
+echo "Installing Chrome Remote Desktop..."
+sudo dpkg -i chrome-remote-desktop_current_amd64.deb || sudo apt --fix-broken install -y
 
-echo "Installing Google Chrome"
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo dpkg --install google-chrome-stable_current_amd64.deb
-sudo apt install --assume-yes --fix-broken
+echo "Enter your Chrome Remote Desktop setup key:"
+read -r CRD_KEY
 
-# Prompt user for CRP value
-read -p "Enter CRP value: " CRP
-
-echo "Finalizing setup"
-if [ "$Autostart" = true ]; then
-    mkdir -p "/home/$username/.config/autostart"
-    link="https://youtu.be/d9ui27vVePY?si=TfVDVQOd0VHjUt_b"
-    colab_autostart="[Desktop Entry]\nType=Application\nName=Colab\nExec=sh -c 'sensible-browser $link'\nIcon=\nComment=Open a predefined notebook at session signin.\nX-GNOME-Autostart-enabled=true"
-    echo -e "$colab_autostart" | sudo tee "/home/$username/.config/autostart/colab.desktop"
-    sudo chmod +x "/home/$username/.config/autostart/colab.desktop"
-    sudo chown "$username:$username" "/home/$username/.config"
+if [[ -z "$CRD_KEY" ]]; then
+    echo "No key entered. Please enter a valid CRD key."
+    exit 1
 fi
 
-sudo adduser "$username" chrome-remote-desktop
-command="$CRP --pin=$Pin"
-sudo su - "$username" -c "$command"
-sudo service chrome-remote-desktop start
+echo "Setting up Chrome Remote Desktop..."
+DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="$CRD_KEY" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name="Gitpod Ubuntu"
 
-echo "Finished Successfully"
-while true; do sleep 10; done
+echo "Configuring GNOME session..."
+echo "exec gnome-session" > ~/.xsession
+
+echo "Disabling Wayland for compatibility..."
+sudo sed -i 's/#WaylandEnable=false/WaylandEnable=false/g' /etc/gdm3/custom.conf
+
+echo "Starting dbus session..."
+dbus-launch --exit-with-session gnome-session &
+
+echo "Chrome Remote Desktop and GNOME setup is complete!"
+echo "You can now connect using Chrome Remote Desktop."
